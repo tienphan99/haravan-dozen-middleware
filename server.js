@@ -86,23 +86,23 @@ app.post("/api/adjust-cart", async (req, res) => {
       const buyxgetyResp = await axios.get(buyxgetyUrl);
       const recommended = buyxgetyResp.data?.recommendeds?.[0];
 
-      if (recommended && item.quantity >= recommended.quantity) {
-        const giftExists = adjustedCart.find(
-          (i) => i.product_id === recommended.product_id
-        );
+    //   if (recommended && item.quantity >= recommended.quantity) {
+    //     const giftExists = adjustedCart.find(
+    //       (i) => i.product_id === recommended.product_id
+    //     );
 
-        if (!giftExists) {
-          adjustedCart.push({
-            product_id: recommended.product_id,
-            title: recommended.product_name,
-            quantity: recommended.apply_quantity || 1,
-            price: 0,
-            is_gift: true,
-            image: recommended.product_images?.[0] || null,
-            note: "Added by middleware (Buy X Get Y)"
-          });
-        }
-      }
+    //     if (!giftExists) {
+    //       adjustedCart.push({
+    //         product_id: recommended.product_id,
+    //         title: recommended.product_name,
+    //         quantity: recommended.apply_quantity || 1,
+    //         price: 0,
+    //         is_gift: true,
+    //         image: recommended.product_images?.[0] || null,
+    //         note: "Added by middleware (Buy X Get Y)"
+    //       });
+    //     }
+    //   }
       let adjustedCart = [];
 
         if (cartItem.quantity >= wholesaleData.program.promotions[0].quantity_min) {
