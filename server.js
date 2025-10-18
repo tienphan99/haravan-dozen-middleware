@@ -56,54 +56,60 @@ app.use(bodyParser.json());
 app.get("/", (req, res) => {
   res.send("✅ Haravan middleware app is running!");
 });
-
-app.post("/api/adjust-cart", (req, res) => {
+app.post("/api/adjust-cart", async (req, res) => {
   try {
     const { cart } = req.body;
-
     if (!cart || !Array.isArray(cart)) {
       return res.status(400).json({ error: "Invalid cart data" });
     }
 
-    // --- Cấu hình chương trình ---
-    const ENSURE_PRODUCT_ID = 1070030847; // ID sản phẩm Ensure
-    const WHOLESALE_PRICE = 745000;       // Giá sỉ
-    const WHOLESALE_QTY = 6;              // Số lượng mua để được giá sỉ
-    const GIFT_VARIANT_ID = 1159975862;    // ✅ TODO: thay bằng variant_id sản phẩm quà thật
-    const GIFT_TITLE = "Healthy Care Complete Nutrition with Lactoferrin";
-
     let adjustedCart = [...cart];
-    let ensureItem = adjustedCart.find(i => i.product_id === ENSURE_PRODUCT_ID);
-    let giftItem = adjustedCart.find(i => i.product_id === GIFT_VARIANT_ID);
 
-    // --- Áp dụng logic ---
-    if (ensureItem && ensureItem.quantity >= WHOLESALE_QTY) {
-      // 1. Áp dụng giá sỉ
-      ensureItem.price = WHOLESALE_PRICE;
+    for (const item of cart) {
+      const productId = item.product_id;
 
-      // 2. Thêm quà tặng nếu chưa có
-      if (!giftItem) {
-        adjustedCart.push({
-          product_id: GIFT_VARIANT_ID,
-          title: GIFT_TITLE,
-          quantity: 1,
-          price: 0,
-          is_gift: true,
-        });
+      // 1️⃣ Gọi API Wholesale
+      const wholesaleUrl = `https://wholesale-apps.haravan.com/js/policy?product_id=${productId}`;
+      const wholesaleResp = await axios.get(wholesaleUrl);
+      const wholesaleData = wholesaleResp.data?.program?.promotions?.[0];
+
+      if (wholesaleData && item.quantity >= wholesaleData.quantity_min) {
+        const discount = wholesaleData.value || 0;
+        const newPrice = item.price - discount;
+        item.price = newPrice > 0 ? newPrice : 0;
       }
-    } else {
-      // Nếu chưa đủ điều kiện, xoá quà nếu có
-      adjustedCart = adjustedCart.filter(i => i.product_id !== GIFT_VARIANT_ID);
+
+      // 2️⃣ Gọi API Buy X Get Y
+      const buyxgetyUrl = `https://buyxgety-omni.haravan.com/js/recommendeds?product_id=${productId}`;
+      const buyxgetyResp = await axios.get(buyxgetyUrl);
+      const recommended = buyxgetyResp.data?.recommendeds?.[0];
+
+      if (recommended && item.quantity >= recommended.quantity) {
+        const giftExists = adjustedCart.find(
+          (i) => i.product_id === recommended.product_id
+        );
+
+        if (!giftExists) {
+          adjustedCart.push({
+            product_id: recommended.product_id,
+            title: recommended.product_name,
+            quantity: recommended.apply_quantity || 1,
+            price: 0,
+            is_gift: true,
+            image: recommended.product_images?.[0] || null,
+            note: "Added by middleware (Buy X Get Y)"
+          });
+        }
+      }
     }
 
     return res.json({
-      message: "✅ Cart adjusted successfully",
-      adjusted_cart: adjustedCart,
+      message: "✅ Cart adjusted successfully (auto API merge)",
+      adjusted_cart: adjustedCart
     });
-
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Internal server error" });
+  } catch (err) {
+    console.error("❌ Adjust cart error:", err);
+    res.status(500).json({ error: "Internal server error", details: err.message });
   }
 });
 
