@@ -71,6 +71,8 @@ app.post("/api/adjust-cart", async (req, res) => {
       // 1️⃣ Gọi API Wholesale
       const wholesaleUrl = `https://wholesale-apps.haravan.com/js/policy?product_id=${productId}`;
       const wholesaleResp = await axios.get(wholesaleUrl);
+      const giftRes = await axios.get(`https://buyxgety-omni.haravan.com/js/recommendeds?product_id=${productId}`);
+
       const wholesaleData = wholesaleResp.data?.program?.promotions?.[0];
 
       if (wholesaleData && item.quantity >= wholesaleData.quantity_min) {
@@ -101,6 +103,29 @@ app.post("/api/adjust-cart", async (req, res) => {
           });
         }
       }
+      let adjustedCart = [];
+
+        if (cartItem.quantity >= wholesaleData.program.promotions[0].quantity_min) {
+        adjustedCart.push({
+            product_id: cartItem.product_id,
+            title: cartItem.title,
+            quantity: cartItem.quantity,
+            price: cartItem.price - wholesaleData.program.promotions[0].value
+        });
+        }
+
+        if (giftData.recommendeds && giftData.recommendeds.length > 0) {
+        const gift = giftData.recommendeds[0];
+        if (cartItem.quantity >= gift.quantity) {
+            adjustedCart.push({
+            product_id: gift.product_id,
+            title: gift.product_name,
+            quantity: gift.apply_quantity,
+            price: 0,
+            is_gift: true
+            });
+        }
+        }
     }
 
     return res.json({
